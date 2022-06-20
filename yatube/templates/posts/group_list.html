@@ -9,7 +9,7 @@
       <p>{{ group.description }}</p>
  
       {% for post in page_obj %}
-        {% include 'posts/includes/posts_list.html' %}
+        {% include 'posts/includes/posts_list.html' with kw_group="on_group_page" %}
       {% endfor %} 
 
     {% include 'posts/includes/paginator.html' %}

@@ -105,3 +105,6 @@ class Follow(models.Model):
         verbose_name='Автор',
         help_text='Автор, на которого подписываются'
     )
+
+    class Meta:
+        unique_together = ('user', 'author',)

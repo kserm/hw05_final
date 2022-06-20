@@ -1,9 +1,9 @@
-from django.core.cache import cache
 import shutil
 import tempfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.conf import settings
@@ -99,18 +99,19 @@ class PostsPagesTests(TestCase):
 
     def test_posts_pages_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
+        first_post_id = Post.objects.get(id=1).id
         posts_pages_dict = {
             reverse('posts:index'): 'posts/index.html',
-            reverse('posts:group_list', kwargs={'slug': 'test-slug1'}):
+            reverse('posts:group_list', kwargs={'slug': self.group1.slug}):
                 'posts/group_list.html',
-            reverse('posts:profile', kwargs={'username': 'auth'}):
+            reverse('posts:profile', kwargs={'username': self.user.username}):
                 'posts/profile.html',
-            reverse('posts:post_detail', kwargs={'post_id': 1}):
+            reverse('posts:post_detail', kwargs={'post_id': first_post_id}):
                 'posts/post_detail.html',
             reverse('posts:post_create'): 'posts/create_post.html',
-            reverse('posts:post_edit', kwargs={'post_id': 1}):
+            reverse('posts:post_edit', kwargs={'post_id': first_post_id}):
                 'posts/create_post.html',
-            reverse('posts:add_comment', kwargs={'post_id': 15}):
+            reverse('posts:add_comment', kwargs={'post_id': self.post.id}):
                 'posts/post_detail.html',
         }
         for name, template in posts_pages_dict.items():
@@ -142,13 +143,13 @@ class PostsPagesTests(TestCase):
         """Шаблон group_list сформирован с правильным контекстом и содержит
          нужное количество постов."""
         response = self.authorized_client.get(reverse(
-            'posts:group_list', kwargs={'slug': 'test-slug1'}
+            'posts:group_list', kwargs={'slug': self.group1.slug}
         ))
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.post_check(response.context['page_obj'])
         for post in response.context['page_obj']:
-            self.assertEqual(post.group.title, 'Тестовая группа 1')
-            self.assertNotEqual(post.group.title, 'Тестовая группа 2')
+            self.assertEqual(post.group.title, self.group1.title)
+            self.assertNotEqual(post.group.title, self.group2.title)
         self.assertIsInstance(response.context['group'], Group)
         posts_count = len(response.context['page_obj'])
         self.assertEqual(posts_count, settings.POSTS_NUM)
@@ -157,18 +158,18 @@ class PostsPagesTests(TestCase):
         """Шаблон group_list сформирован с правильным контекстом и содержит
          нужное количество постов (стр.2)."""
         response = self.authorized_client.get(reverse(
-            'posts:group_list', kwargs={'slug': 'test-slug2'}
+            'posts:group_list', kwargs={'slug': self.group2.slug}
         ))
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.post_check(response.context['page_obj'])
         for post in response.context['page_obj']:
-            self.assertEqual(post.group.title, 'Тестовая группа 2')
-            self.assertNotEqual(post.group.title, 'Тестовая группа 1')
+            self.assertEqual(post.group.title, self.group2.title)
+            self.assertNotEqual(post.group.title, self.group1.title)
         self.assertIsInstance(response.context['group'], Group)
         posts_count = len(response.context['page_obj'])
         self.assertEqual(posts_count, 5)
         diff_group_posts = self.authorized_client.get(reverse(
-            'posts:group_list', kwargs={'slug': 'test-slug1'}
+            'posts:group_list', kwargs={'slug': self.group1.slug}
         ))
         self.assertNotEqual(diff_group_posts.context['group'].title,
                             response.context['group'].title)
@@ -177,11 +178,12 @@ class PostsPagesTests(TestCase):
         """Шаблон profile сформирован с правильным контекстом и содержит
          нужное количество постов."""
         response = self.authorized_client.get(reverse(
-            'posts:profile', kwargs={'username': 'auth'}
+            'posts:profile', kwargs={'username': self.user.username}
         ))
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.post_check(response.context['page_obj'])
-        self.assertIsInstance(response.context['username'], User)
+        self.assertIsInstance(response.context['author'],
+                              User)
         posts_count = len(response.context['page_obj'])
         self.assertEqual(posts_count, settings.POSTS_NUM)
 
@@ -189,29 +191,29 @@ class PostsPagesTests(TestCase):
         """Шаблон profile сформирован с правильным контекстом и содержит
          нужное количество постов (стр.2)."""
         response = self.authorized_client.get(reverse(
-            'posts:profile', kwargs={'username': 'auth'}
+            'posts:profile', kwargs={'username': self.user.username}
         ) + '?page=2')
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.post_check(response.context['page_obj'])
-        self.assertIsInstance(response.context['username'], User)
+        self.assertIsInstance(response.context['author'],
+                              User)
         posts_count = len(response.context['page_obj'])
         self.assertEqual(posts_count, 5)
 
     def test_post_detail_page_show_correct_context(self):
         """Шаблон post_detail сформирован с правильным контекстом"""
-        id = 15
         response = self.authorized_client.get(reverse(
-            'posts:post_detail', kwargs={'post_id': id}
+            'posts:post_detail', kwargs={'post_id': self.post.id}
         ))
         self.assertEqual(response.status_code, HTTPStatus.OK)
         post_resp = response.context['post']
-        post_obj = Post.objects.get(pk=id)
+        post_obj = Post.objects.get(pk=self.post.id)
         self.assertIsInstance(post_resp, Post)
         self.assertEqual(post_resp.id, post_obj.id)
         self.assertEqual(post_resp.text, post_obj.text)
         self.assertEqual(post_resp.group, post_obj.group)
         self.assertEqual(post_resp.image, post_obj.image)
-        self.assertEqual(post_resp.image, f'posts/small{id}.gif')
+        self.assertEqual(post_resp.image, f'posts/small{self.post.id}.gif')
         comments_resp = response.context['comments']
         comments_obj = Comment.objects.filter(post=post_obj)
         for i in range(len(comments_resp)):
@@ -235,9 +237,11 @@ class PostsPagesTests(TestCase):
 
     def test_add_comment_page_show_correct_context(self):
         """Шаблон add_comment сформирован с правильным контекстом"""
-        response = self.authorized_client.get(reverse('posts:add_comment',
-                                                      kwargs={'post_id': 15}),
-                                              follow=True)
+        response = self.authorized_client.get(reverse(
+            'posts:add_comment',
+            kwargs={'post_id': self.post.id}),
+            follow=True
+        )
         self.assertEqual(response.status_code, HTTPStatus.OK)
         form_fields = {
             'text': forms.fields.CharField,
@@ -255,15 +259,15 @@ class PostsPagesTests(TestCase):
 
     def test_add_comment_page_not_available_for_guest(self):
         """Шаблон add_comment недоступен для неавторизованного пользователя"""
-        response = self.guest_client.get(reverse('posts:add_comment',
-                                                 kwargs={'post_id': 15}))
+        response = self.guest_client.get(
+            reverse('posts:add_comment', kwargs={'post_id': self.post.id}))
         self.assertTemplateNotUsed(response, 'posts/post_detail.html')
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
 
     def test_post_edit_page_show_correct_context(self):
         """Шаблон post_edit сформирован с правильным контекстом"""
         response = self.authorized_client.get(reverse(
-            'posts:post_edit', kwargs={'post_id': 1}
+            'posts:post_edit', kwargs={'post_id': Post.objects.get(id=1).id}
         ))
         self.assertEqual(response.status_code, HTTPStatus.OK)
         form_fields = {
@@ -278,7 +282,7 @@ class PostsPagesTests(TestCase):
     def test_post_edit_page_not_available_for_guest(self):
         """Шаблон post_edit недоступен для неавторизованного пользователя"""
         response = self.guest_client.get(reverse(
-            'posts:post_edit', kwargs={'post_id': 1}
+            'posts:post_edit', kwargs={'post_id': Post.objects.get(id=1).id}
         ))
         self.assertTemplateNotUsed(response, 'posts/create_post.html')
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
@@ -307,7 +311,7 @@ class PostsPagesTests(TestCase):
     def test_authorized_can_follow(self):
         """Проверка, что авторизованный пользователь может подписываться
         на других пользователей"""
-        self.authorized_client.get('/profile/leo/follow/')
+        self.authorized_client.get(f'/profile/{self.leo}/follow/')
         self.assertTrue(Follow.objects.filter(
             user=self.user,
             author=self.leo
@@ -316,7 +320,7 @@ class PostsPagesTests(TestCase):
     def test_authorized_can_unfollow(self):
         """Проверка, что авторизованный пользователь может отписываться
         на других пользователей"""
-        self.authorized_client2.get('/profile/leo/unfollow/')
+        self.authorized_client2.get(f'/profile/{self.leo}/unfollow/')
         self.assertFalse(Follow.objects.filter(
             user=self.user2,
             author=self.leo

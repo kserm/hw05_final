@@ -159,6 +159,6 @@ class PostModelTest(TestCase):
         with self.assertRaises(IntegrityError):
             Group.objects.create(
                 title='Тестовая группа',
-                slug='test-slug',
+                slug=self.group.slug,
                 description='Тестовое описание',
             )

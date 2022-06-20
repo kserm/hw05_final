@@ -62,7 +62,7 @@ class PostCreateFormTests(TestCase):
     def test_create_post(self):
         posts_count = Post.objects.count()
         context = {
-            'author': 'auth',
+            'author': self.user.username,
             'text': 'Новый тестовый пост',
             'group': (self.group, 1),
         }
@@ -74,7 +74,7 @@ class PostCreateFormTests(TestCase):
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertRedirects(response, reverse(
             'posts:profile',
-            kwargs={'username': 'auth'})
+            kwargs={'username': self.user.username})
         )
         self.assertEqual(Post.objects.count(), posts_count + 1)
         self.assertTrue(
@@ -119,7 +119,7 @@ class PostCreateFormTests(TestCase):
     def test_create_post_with_image(self):
         posts_count = Post.objects.count()
         context = {
-            'author': 'auth',
+            'author': self.user.username,
             'text': 'Новый тестовый пост с картинкой',
             'group': (self.group, 1),
             'image': self.generate_image('small.gif')
@@ -132,7 +132,7 @@ class PostCreateFormTests(TestCase):
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertRedirects(response, reverse(
             'posts:profile',
-            kwargs={'username': 'auth'})
+            kwargs={'username': self.user.username})
         )
         self.assertEqual(Post.objects.count(), posts_count + 1)
         self.assertTrue(Post.objects.filter(
@@ -175,7 +175,7 @@ class PostCreateFormTests(TestCase):
         post = Post.objects.first()
         context = {
             'post': post,
-            'author': self.user,
+            'author': self.user.username,
             'text': 'Новый тестовый комментарий'
         }
         response = self.authorized_client.post(
